@@ -60,44 +60,82 @@
     };
 
     function loadParameters() {
-      const tier = document.getElementById('tier').value;
-      const container = document.getElementById('parameters');
-      container.innerHTML = '';
+  const tier = document.getElementById('tier').value;
+  const container = document.getElementById('parameters');
+  container.innerHTML = '';
 
-      if (!tierData[tier]) return;
+  if (!tierData[tier]) return;
 
-      tierData[tier].forEach((param, idx) => {
-        const row = document.createElement('div');
-        row.className = 'param-row';
+  const table = document.createElement('table');
+  table.border = 1;
+  table.style.borderCollapse = 'collapse';
+  table.style.marginTop = '20px';
 
-        const label = document.createElement('label');
-        label.innerText = param.name;
+  // Table header
+  const header = table.insertRow();
+  ['Parameter', 'Option', 'Weight', 'Score', 'Weighted Score'].forEach(text => {
+    const th = document.createElement('th');
+    th.innerText = text;
+    th.style.padding = '6px';
+    header.appendChild(th);
+  });
 
-        const select = document.createElement('select');
-        select.id = `param-${idx}`;
-        select.style.width = '300px';
+  tierData[tier].forEach((param, idx) => {
+    const row = table.insertRow();
 
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.innerText = '-- Select --';
-        select.appendChild(defaultOption);
+    // Parameter Name
+    const paramCell = row.insertCell();
+    paramCell.innerText = param.name;
+    paramCell.style.padding = '6px';
 
-        for (let [opt, score] of Object.entries(param.options)) {
-          const option = document.createElement('option');
-          option.value = score;
-          option.innerText = opt;
-          select.appendChild(option);
-        }
+    // Dropdown
+    const selectCell = row.insertCell();
+    const select = document.createElement('select');
+    select.id = `param-${idx}`;
+    select.style.width = '150px';
 
-        row.appendChild(label);
-        row.appendChild(document.createElement('br'));
-        row.appendChild(select);
-        container.appendChild(row);
-      });
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.innerText = '-- Select --';
+    select.appendChild(defaultOption);
+
+    for (let [opt, score] of Object.entries(param.options)) {
+      const option = document.createElement('option');
+      option.value = score;
+      option.innerText = opt;
+      select.appendChild(option);
     }
 
+    select.onchange = () => {
+      const score = parseFloat(select.value) || 0;
+      const weight = parseFloat(weightCell.innerText) || 0;
+      scoreCell.innerText = score;
+      weightedCell.innerText = (score * weight).toFixed(2);
+    };
+
+    selectCell.appendChild(select);
+
+    // Weight
+    const weightCell = row.insertCell();
+    weightCell.innerText = param.weight;
+    weightCell.style.textAlign = 'center';
+
+    // Score
+    const scoreCell = row.insertCell();
+    scoreCell.innerText = '0';
+    scoreCell.style.textAlign = 'center';
+
+    // Weighted Score
+    const weightedCell = row.insertCell();
+    weightedCell.innerText = '0.00';
+    weightedCell.style.textAlign = 'center';
+  });
+
+  container.appendChild(table);
+}
+
     function computeScore() {
-  // Clear previous error highlights
+  // Clear error borders
   document.querySelectorAll('.numeric').forEach(el => el.classList.remove('error'));
 
   const cr = document.getElementById('crNumber');
@@ -125,20 +163,39 @@
   }
 
   const tier = document.getElementById('tier').value;
-  if (!tierData[tier]) return;
+  const paramCount = tierData[tier]?.length || 0;
 
-  let total = 0;
+  let totalScore = 0;
   let totalWeight = 0;
 
-  tierData[tier].forEach((param, idx) => {
-    const score = parseFloat(document.getElementById(`param-${idx}`).value);
-    if (!isNaN(score)) {
-      total += (score * param.weight);
-      totalWeight += param.weight;
-    }
-  });
+  for (let i = 0; i < paramCount; i++) {
+    const score = parseFloat(document.querySelector(`#param-${i}`)?.value || 0);
+    const weight = parseFloat(document.querySelector(`#param-${i}`)?.parentElement.nextSibling.innerText || 0);
 
-  const finalScore = totalWeight > 0 ? (total / totalWeight).toFixed(2) : 0;
+    if (!isNaN(score)) {
+      totalScore += score * weight;
+      totalWeight += weight;
+    }
+  }
+
+  const finalScore = totalWeight ? (totalScore / totalWeight).toFixed(2) : 0;
+
+  let riskBand = '';
+  if (finalScore >= 80) riskBand = 'Low Risk';
+  else if (finalScore >= 60) riskBand = 'Moderate Risk';
+  else if (finalScore >= 40) riskBand = 'High Risk';
+  else riskBand = 'Very High Risk';
+
+  const result = `Customer Name: ${document.getElementById('customerName').value}
+CR Number: ${cr.value}
+Unified Number: ${un.value}
+VAT Registration Number: ${vat.value}
+
+Final Score: ${finalScore} / 100
+Risk Band: ${riskBand}`;
+
+  document.getElementById('output').innerText = result;
+}
 
       let riskBand = '';
       if (finalScore >= 80) riskBand = 'Low Risk';
@@ -158,18 +215,78 @@ Risk Band: ${riskBand}`;
     }
 
     async function downloadPDF() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
 
-      const outputText = document.getElementById('output').innerText || 'Please compute the score first.';
-      const lines = outputText.split('\n');
+  const name = document.getElementById('customerName').value;
+  const cr = document.getElementById('crNumber').value;
+  const un = document.getElementById('unifiedNumber').value;
+  const vat = document.getElementById('vatNumber').value;
+  const tier = document.getElementById('tier').value;
 
-      lines.forEach((line, i) => {
-        doc.text(line, 10, 10 + i * 10);
-      });
+  let y = 10;
+  doc.setFontSize(12);
+  doc.text(`Customer Name: ${name}`, 10, y);
+  y += 8;
+  doc.text(`CR Number: ${cr}`, 10, y);
+  y += 8;
+  doc.text(`Unified Number: ${un}`, 10, y);
+  y += 8;
+  doc.text(`VAT Registration Number: ${vat}`, 10, y);
+  y += 10;
 
-      doc.save('score-summary.pdf');
-    }
+  doc.setFontSize(14);
+  doc.text(`Scoring Details (${tier})`, 10, y);
+  y += 8;
+
+  // Table headers
+  doc.setFontSize(10);
+  doc.text("Parameter", 10, y);
+  doc.text("Option", 60, y);
+  doc.text("Weight", 100, y);
+  doc.text("Score", 120, y);
+  doc.text("Weighted", 140, y);
+  y += 6;
+
+  const paramCount = tierData[tier]?.length || 0;
+  let totalScore = 0;
+  let totalWeight = 0;
+
+  for (let i = 0; i < paramCount; i++) {
+    const param = tierData[tier][i];
+    const el = document.querySelector(`#param-${i}`);
+    const selectedOption = el.options[el.selectedIndex]?.text || '';
+    const score = parseFloat(el.value || 0);
+    const weight = param.weight;
+    const weightedScore = score * weight;
+
+    doc.text(param.name, 10, y);
+    doc.text(selectedOption, 60, y);
+    doc.text(`${weight}`, 100, y);
+    doc.text(`${score}`, 120, y);
+    doc.text(`${weightedScore.toFixed(2)}`, 140, y);
+    y += 6;
+
+    totalScore += weightedScore;
+    totalWeight += weight;
+  }
+
+  const finalScore = totalWeight ? (totalScore / totalWeight).toFixed(2) : 0;
+  let riskBand = '';
+  if (finalScore >= 80) riskBand = 'Low Risk';
+  else if (finalScore >= 60) riskBand = 'Moderate Risk';
+  else if (finalScore >= 40) riskBand = 'High Risk';
+  else riskBand = 'Very High Risk';
+
+  y += 10;
+  doc.setFontSize(12);
+  doc.text(`Final Score: ${finalScore} / 100`, 10, y);
+  y += 8;
+  doc.text(`Risk Band: ${riskBand}`, 10, y);
+
+  doc.save('risk-score-summary.pdf');
+}
+
   </script>
 </body>
 </html>
