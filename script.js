@@ -118,8 +118,10 @@ function calculateScore() {
   downloadBtn.disabled = false;
 }
 
-// Basic PDF Download
-function downloadPDF() {
+// Basic PDF Downloadfunction downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
   const name = document.getElementById('customerName').value;
   const cr = document.getElementById('crNumber').value;
   const unn = document.getElementById('unifiedNumber').value;
@@ -128,23 +130,39 @@ function downloadPDF() {
   const tier = tierSelect.value;
   const scoreText = result.innerText;
 
-  const content = `
-    Customer Name: ${name}
-    CR Number: ${cr}
-    Unified Number: ${unn}
-    VAT Number: ${vat}
-    Avg Monthly Sales: ${sales}
-    Tier Selected: ${tier}
+  let y = 10;
+  doc.setFontSize(12);
+  doc.text("Customer Information", 10, y);
+  y += 10;
+  doc.text(`Customer Name: ${name}`, 10, y); y += 8;
+  doc.text(`CR Number: ${cr}`, 10, y); y += 8;
+  doc.text(`Unified Number: ${unn}`, 10, y); y += 8;
+  doc.text(`VAT Number: ${vat}`, 10, y); y += 8;
+  doc.text(`Average Monthly Sales: ${sales} SAR`, 10, y); y += 10;
 
-    Scoring Result:
-    ${scoreText}
-  `;
+  doc.text("Tier Selection", 10, y); y += 8;
+  doc.text(`Selected Tier: ${tier}`, 10, y); y += 10;
 
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${name || 'RiskScore'}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
+  doc.text("Parameter Inputs", 10, y); y += 8;
+
+  const dropdowns = document.querySelectorAll('.param-dropdown');
+  dropdowns.forEach((dropdown, index) => {
+    const label = dropdown.previousElementSibling.textContent;
+    const selected = dropdown.options[dropdown.selectedIndex].text;
+    const score = dropdown.value;
+    const weight = dropdown.dataset.weight;
+    doc.text(`${label}: ${selected} (Score: ${score}, Weight: ${weight})`, 10, y);
+    y += 8;
+  });
+
+  y += 5;
+  doc.text("Scoring Result", 10, y); y += 8;
+
+  scoreText.split('\n').forEach(line => {
+    doc.text(line, 10, y);
+    y += 8;
+  });
+
+  doc.save(`${name || 'RiskScore'}.pdf`);
 }
+
