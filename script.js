@@ -122,13 +122,13 @@ function calculateScore() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
-  const name = document.getElementById('customerName').value;
-  const cr = document.getElementById('crNumber').value;
-  const unn = document.getElementById('unifiedNumber').value;
-  const vat = document.getElementById('vatNumber').value;
-  const sales = document.getElementById('monthlySales').value;
-  const tier = tierSelect.value;
-  const scoreText = result.innerText;
+  const name = document.getElementById('customerName').value || 'N/A';
+  const cr = document.getElementById('crNumber').value || 'N/A';
+  const unn = document.getElementById('unifiedNumber').value || 'N/A';
+  const vat = document.getElementById('vatNumber').value || 'N/A';
+  const sales = document.getElementById('monthlySales').value || 'N/A';
+  const tier = tierSelect.value || 'N/A';
+  const scoreText = result.innerText || 'N/A';
 
   let y = 10;
   doc.setFontSize(12);
@@ -143,10 +143,10 @@ function calculateScore() {
   doc.text("Tier Selection", 10, y); y += 8;
   doc.text(`Selected Tier: ${tier}`, 10, y); y += 10;
 
-  doc.text("Parameter Inputs", 10, y); y += 8;
+  doc.text("Scoring Inputs", 10, y); y += 8;
 
   const dropdowns = document.querySelectorAll('.param-dropdown');
-  dropdowns.forEach((dropdown, index) => {
+  dropdowns.forEach(dropdown => {
     const label = dropdown.previousElementSibling.textContent;
     const selected = dropdown.options[dropdown.selectedIndex].text;
     const score = dropdown.value;
@@ -165,4 +165,5 @@ function calculateScore() {
 
   doc.save(`${name || 'RiskScore'}.pdf`);
 }
+
 
