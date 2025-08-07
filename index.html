@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <title>Risk Score Calculator</title>
-  <style>
-    body { font-family: Arial; margin: 30px; }
-    select, input, button { padding: 6px; margin: 10px 0; width: 300px; }
-    .param-row, .field-row { margin-bottom: 15px; }
-    .result { margin-top: 20px; font-weight: bold; white-space: pre-line; }
-  </style>
+<style>
+  body { font-family: Arial; margin: 30px; }
+  select, input, button { padding: 6px; margin: 10px 0; width: 300px; }
+  .param-row, .field-row { margin-bottom: 15px; }
+  .result { margin-top: 20px; font-weight: bold; white-space: pre-line; }
+  input.error { border: 2px solid red; }
+</style>
+
 </head>
 <body>
   <h2>Risk Score Calculator</h2>
@@ -95,21 +97,48 @@
     }
 
     function computeScore() {
-      const tier = document.getElementById('tier').value;
-      if (!tierData[tier]) return;
+  // Clear previous error highlights
+  document.querySelectorAll('.numeric').forEach(el => el.classList.remove('error'));
 
-      let total = 0;
-      let totalWeight = 0;
+  const cr = document.getElementById('crNumber');
+  const un = document.getElementById('unifiedNumber');
+  const vat = document.getElementById('vatNumber');
 
-      tierData[tier].forEach((param, idx) => {
-        const score = parseFloat(document.getElementById(`param-${idx}`).value);
-        if (!isNaN(score)) {
-          total += (score * param.weight);
-          totalWeight += param.weight;
-        }
-      });
+  let valid = true;
 
-      const finalScore = totalWeight > 0 ? (total / totalWeight).toFixed(2) : 0;
+  if (!/^\d{10}$/.test(cr.value.trim())) {
+    cr.classList.add('error');
+    valid = false;
+  }
+  if (!/^\d{10}$/.test(un.value.trim())) {
+    un.classList.add('error');
+    valid = false;
+  }
+  if (!/^\d{15}$/.test(vat.value.trim())) {
+    vat.classList.add('error');
+    valid = false;
+  }
+
+  if (!valid) {
+    alert('Please correct the highlighted fields:\n- CR and Unified Numbers must be 10 digits\n- VAT must be 15 digits');
+    return;
+  }
+
+  const tier = document.getElementById('tier').value;
+  if (!tierData[tier]) return;
+
+  let total = 0;
+  let totalWeight = 0;
+
+  tierData[tier].forEach((param, idx) => {
+    const score = parseFloat(document.getElementById(`param-${idx}`).value);
+    if (!isNaN(score)) {
+      total += (score * param.weight);
+      totalWeight += param.weight;
+    }
+  });
+
+  const finalScore = totalWeight > 0 ? (total / totalWeight).toFixed(2) : 0;
 
       let riskBand = '';
       if (finalScore >= 80) riskBand = 'Low Risk';
