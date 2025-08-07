@@ -1,292 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Risk Score Calculator</title>
-<style>
-  body { font-family: Arial; margin: 30px; }
-  select, input, button { padding: 6px; margin: 10px 0; width: 300px; }
-  .param-row, .field-row { margin-bottom: 15px; }
-  .result { margin-top: 20px; font-weight: bold; white-space: pre-line; }
-  input.error { border: 2px solid red; }
-</style>
-
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="script.js"></script>
 </head>
-<body>
-  <h2>Risk Score Calculator</h2>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white p-6 rounded-lg shadow-md w-full max-w-3xl">
+    <h1 class="text-2xl font-bold mb-4 text-center">Risk Score Calculator</h1>
 
-  <div class="field-row">
-    <label>Customer Name: <input type="text" id="customerName"></label><br>
-    <label>CR Number (10 digits):<input type="text" id="crNumber" class="numeric" inputmode="numeric"></label><br>
-<label>Unified Number (10 digits):<input type="text" id="unifiedNumber" class="numeric" inputmode="numeric"></label><br>
-<label>VAT Registration Number (15 digits):<input type="text" id="vatNumber" class="numeric" inputmode="numeric"></label>
+    <!-- Customer Info -->
+    <div class="space-y-4 mb-6">
+      <input id="customerName" type="text" placeholder="Customer Name" class="w-full p-2 border rounded" required />
+      <input id="crNumber" type="text" placeholder="CR Number (10 digits)" maxlength="10" class="w-full p-2 border rounded" />
+      <input id="unifiedNumber" type="text" placeholder="Unified Number (10 digits)" maxlength="10" class="w-full p-2 border rounded" />
+      <input id="vatNumber" type="text" placeholder="VAT Number (15 digits)" maxlength="15" class="w-full p-2 border rounded" />
+      <input id="monthlySales" type="number" placeholder="Average Monthly Sales (SAR)" class="w-full p-2 border rounded" />
+    </div>
+
+    <!-- Tier Selection -->
+    <label class="block mb-2 font-medium">Select Tier</label>
+    <select id="tierSelect" class="w-full border p-2 mb-4 rounded">
+      <option value="">-- Select Tier --</option>
+    </select>
+
+    <!-- Parameters -->
+    <div id="parametersContainer" class="space-y-4 mb-6"></div>
+
+    <!-- Buttons -->
+    <div class="flex gap-4">
+      <button id="calculateBtn" onclick="calculateScore()" disabled class="bg-gray-400 text-white px-4 py-2 rounded cursor-not-allowed">
+        Calculate Score
+      </button>
+      <button id="downloadBtn" onclick="downloadPDF()" disabled class="bg-blue-600 text-white px-4 py-2 rounded">
+        Download PDF
+      </button>
+    </div>
+
+    <!-- Results -->
+    <div id="result" class="mt-6 text-lg font-semibold text-green-700"></div>
   </div>
-
-  <label for="tier">Select Tier:</label><br>
-  <select id="tier" onchange="loadParameters()">
-    <option value="">-- Choose Tier --</option>
-    <option value="Tier 1">Tier 1 : SCF / 100K</option>
-    <option value="Tier 2">Tier 2 : SCF / 200K</option>
-    <option value="Tier 3">Tier 3 : SCF / 1M</option>
-    <option value="Tier 4">Tier 4 : EDP / >1M</option>
-  </select>
-
-  <div id="parameters"></div>
-  <button onclick="computeScore()">Compute Score</button>
-  <button onclick="downloadPDF()">Download PDF</button>
-
-  <div class="result" id="output"></div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script>
-    const tierData = {
-      "Tier 1": [
-        { name: "CR Status", options: { "Active": 10, "Expired": 0 }, weight: 10 },
-        { name: "Business Age", options: { "<6": 0, "6-11": 2, "12-23": 4, "24-35": 6, "36+": 10 }, weight: 20 },
-        { name: "Owner Match", options: { "Yes": 10, "No": 0 }, weight: 5 }
-      ],
-      "Tier 2": [
-        { name: "SIMAH Defaults", options: { "None": 10, "1-2": 5, "3+": 0 }, weight: 15 },
-        { name: "Facility Ratio", options: { "<1.5": 10, "1.5-2.5": 5, ">2.5": 0 }, weight: 10 }
-      ],
-      "Tier 3": [
-        { name: "Legal Structure", options: { "LLC": 10, "Establishment": 5 }, weight: 10 },
-        { name: "Owner Match", options: { "Yes": 10, "No": 0 }, weight: 10 }
-      ],
-      "Tier 4": [
-        { name: "SIMAH Owner Score", options: { "Excellent": 10, "Good": 8, "Fair": 5, "Poor": 0 }, weight: 15 },
-        { name: "National Address Match", options: { "Yes": 10, "No": 0 }, weight: 5 }
-      ]
-    };
-
-    function loadParameters() {
-  const tier = document.getElementById('tier').value;
-  const container = document.getElementById('parameters');
-  container.innerHTML = '';
-
-  if (!tierData[tier]) return;
-
-  const table = document.createElement('table');
-  table.border = 1;
-  table.style.borderCollapse = 'collapse';
-  table.style.marginTop = '20px';
-
-  // Table header
-  const header = table.insertRow();
-  ['Parameter', 'Option', 'Weight', 'Score', 'Weighted Score'].forEach(text => {
-    const th = document.createElement('th');
-    th.innerText = text;
-    th.style.padding = '6px';
-    header.appendChild(th);
-  });
-
-  tierData[tier].forEach((param, idx) => {
-    const row = table.insertRow();
-
-    // Parameter Name
-    const paramCell = row.insertCell();
-    paramCell.innerText = param.name;
-    paramCell.style.padding = '6px';
-
-    // Dropdown
-    const selectCell = row.insertCell();
-    const select = document.createElement('select');
-    select.id = `param-${idx}`;
-    select.style.width = '150px';
-
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.innerText = '-- Select --';
-    select.appendChild(defaultOption);
-
-    for (let [opt, score] of Object.entries(param.options)) {
-      const option = document.createElement('option');
-      option.value = score;
-      option.innerText = opt;
-      select.appendChild(option);
-    }
-
-    select.onchange = () => {
-      const score = parseFloat(select.value) || 0;
-      const weight = parseFloat(weightCell.innerText) || 0;
-      scoreCell.innerText = score;
-      weightedCell.innerText = (score * weight).toFixed(2);
-    };
-
-    selectCell.appendChild(select);
-
-    // Weight
-    const weightCell = row.insertCell();
-    weightCell.innerText = param.weight;
-    weightCell.style.textAlign = 'center';
-
-    // Score
-    const scoreCell = row.insertCell();
-    scoreCell.innerText = '0';
-    scoreCell.style.textAlign = 'center';
-
-    // Weighted Score
-    const weightedCell = row.insertCell();
-    weightedCell.innerText = '0.00';
-    weightedCell.style.textAlign = 'center';
-  });
-
-  container.appendChild(table);
-}
-
-    function computeScore() {
-  // Clear error borders
-  document.querySelectorAll('.numeric').forEach(el => el.classList.remove('error'));
-
-  const cr = document.getElementById('crNumber');
-  const un = document.getElementById('unifiedNumber');
-  const vat = document.getElementById('vatNumber');
-
-  let valid = true;
-
-  if (!/^\d{10}$/.test(cr.value.trim())) {
-    cr.classList.add('error');
-    valid = false;
-  }
-  if (!/^\d{10}$/.test(un.value.trim())) {
-    un.classList.add('error');
-    valid = false;
-  }
-  if (!/^\d{15}$/.test(vat.value.trim())) {
-    vat.classList.add('error');
-    valid = false;
-  }
-
-  if (!valid) {
-    alert('Please correct the highlighted fields:\n- CR and Unified Numbers must be 10 digits\n- VAT must be 15 digits');
-    return;
-  }
-
-  const tier = document.getElementById('tier').value;
-  const paramCount = tierData[tier]?.length || 0;
-
-  let totalScore = 0;
-  let totalWeight = 0;
-
-  for (let i = 0; i < paramCount; i++) {
-    const score = parseFloat(document.querySelector(`#param-${i}`)?.value || 0);
-    const weight = parseFloat(document.querySelector(`#param-${i}`)?.parentElement.nextSibling.innerText || 0);
-
-    if (!isNaN(score)) {
-      totalScore += score * weight;
-      totalWeight += weight;
-    }
-  }
-
-  const finalScore = totalWeight ? (totalScore / totalWeight).toFixed(2) : 0;
-
-  let riskBand = '';
-  if (finalScore >= 80) riskBand = 'Low Risk';
-  else if (finalScore >= 60) riskBand = 'Moderate Risk';
-  else if (finalScore >= 40) riskBand = 'High Risk';
-  else riskBand = 'Very High Risk';
-
-  const result = `Customer Name: ${document.getElementById('customerName').value}
-CR Number: ${cr.value}
-Unified Number: ${un.value}
-VAT Registration Number: ${vat.value}
-
-Final Score: ${finalScore} / 100
-Risk Band: ${riskBand}`;
-
-  document.getElementById('output').innerText = result;
-}
-
-      let riskBand = '';
-      if (finalScore >= 80) riskBand = 'Low Risk';
-      else if (finalScore >= 60) riskBand = 'Moderate Risk';
-      else if (finalScore >= 40) riskBand = 'High Risk';
-      else riskBand = 'Very High Risk';
-
-      const result = `Customer Name: ${document.getElementById('customerName').value}
-CR Number: ${document.getElementById('crNumber').value}
-Unified Number: ${document.getElementById('unifiedNumber').value}
-VAT Registration Number: ${document.getElementById('vatNumber').value}
-
-Score: ${finalScore} / 100
-Risk Band: ${riskBand}`;
-
-      document.getElementById('output').innerText = result;
-    }
-
-    async function downloadPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-
-  const name = document.getElementById('customerName').value;
-  const cr = document.getElementById('crNumber').value;
-  const un = document.getElementById('unifiedNumber').value;
-  const vat = document.getElementById('vatNumber').value;
-  const tier = document.getElementById('tier').value;
-
-  let y = 10;
-  doc.setFontSize(12);
-  doc.text(`Customer Name: ${name}`, 10, y);
-  y += 8;
-  doc.text(`CR Number: ${cr}`, 10, y);
-  y += 8;
-  doc.text(`Unified Number: ${un}`, 10, y);
-  y += 8;
-  doc.text(`VAT Registration Number: ${vat}`, 10, y);
-  y += 10;
-
-  doc.setFontSize(14);
-  doc.text(`Scoring Details (${tier})`, 10, y);
-  y += 8;
-
-  // Table headers
-  doc.setFontSize(10);
-  doc.text("Parameter", 10, y);
-  doc.text("Option", 60, y);
-  doc.text("Weight", 100, y);
-  doc.text("Score", 120, y);
-  doc.text("Weighted", 140, y);
-  y += 6;
-
-  const paramCount = tierData[tier]?.length || 0;
-  let totalScore = 0;
-  let totalWeight = 0;
-
-  for (let i = 0; i < paramCount; i++) {
-    const param = tierData[tier][i];
-    const el = document.querySelector(`#param-${i}`);
-    const selectedOption = el.options[el.selectedIndex]?.text || '';
-    const score = parseFloat(el.value || 0);
-    const weight = param.weight;
-    const weightedScore = score * weight;
-
-    doc.text(param.name, 10, y);
-    doc.text(selectedOption, 60, y);
-    doc.text(`${weight}`, 100, y);
-    doc.text(`${score}`, 120, y);
-    doc.text(`${weightedScore.toFixed(2)}`, 140, y);
-    y += 6;
-
-    totalScore += weightedScore;
-    totalWeight += weight;
-  }
-
-  const finalScore = totalWeight ? (totalScore / totalWeight).toFixed(2) : 0;
-  let riskBand = '';
-  if (finalScore >= 80) riskBand = 'Low Risk';
-  else if (finalScore >= 60) riskBand = 'Moderate Risk';
-  else if (finalScore >= 40) riskBand = 'High Risk';
-  else riskBand = 'Very High Risk';
-
-  y += 10;
-  doc.setFontSize(12);
-  doc.text(`Final Score: ${finalScore} / 100`, 10, y);
-  y += 8;
-  doc.text(`Risk Band: ${riskBand}`, 10, y);
-
-  doc.save('risk-score-summary.pdf');
-}
-
-  </script>
 </body>
 </html>
