@@ -5,35 +5,55 @@
   <title>Risk Score Calculator</title>
   <style>
     body { font-family: Arial; margin: 30px; }
-    select, button { padding: 6px; margin: 10px 0; }
-    .param-row { margin-bottom: 15px; }
-    .result { margin-top: 20px; font-weight: bold; }
+    select, input, button { padding: 6px; margin: 10px 0; }
+    .param-row, .field-row { margin-bottom: 15px; }
+    .result { margin-top: 20px; font-weight: bold; white-space: pre-line; }
   </style>
 </head>
 <body>
   <h2>Risk Score Calculator</h2>
+
+  <div class="field-row">
+    <label>Customer Name: <input type="text" id="customerName"></label><br>
+    <label>CR Number: <input type="text" id="crNumber"></label><br>
+    <label>Unified Number: <input type="text" id="unifiedNumber"></label><br>
+    <label>VAT Registration Number: <input type="text" id="vatNumber"></label>
+  </div>
 
   <label for="tier">Select Tier:</label>
   <select id="tier" onchange="loadParameters()">
     <option value="">-- Choose Tier --</option>
     <option value="Tier 1">Tier 1 : SCF / 100K</option>
     <option value="Tier 2">Tier 2 : SCF / 200K</option>
+    <option value="Tier 3">Tier 3 : SCF / 1M</option>
+    <option value="Tier 4">Tier 4 : EDP / >1M</option>
   </select>
 
   <div id="parameters"></div>
   <button onclick="computeScore()">Compute Score</button>
+  <button onclick="downloadPDF()">Download PDF</button>
 
   <div class="result" id="output"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
     const tierData = {
       "Tier 1": [
         { name: "CR Status", options: { "Active": 10, "Expired": 0 }, weight: 10 },
-        { name: "Business Age", options: { "<6": 0, "6–11": 2, "12–23": 4, "24–35": 6, "36+": 10 }, weight: 20 }
+        { name: "Business Age", options: { "<6": 0, "6–11": 2, "12–23": 4, "24–35": 6, "36+": 10 }, weight: 20 },
+        { name: "Owner Match", options: { "Yes": 10, "No": 0 }, weight: 5 }
       ],
       "Tier 2": [
         { name: "SIMAH Defaults", options: { "None": 10, "1–2": 5, "3+": 0 }, weight: 15 },
         { name: "Facility Ratio", options: { "<1.5": 10, "1.5–2.5": 5, ">2.5": 0 }, weight: 10 }
+      ],
+      "Tier 3": [
+        { name: "Legal Structure", options: { "LLC": 10, "Establishment": 5 }, weight: 10 },
+        { name: "Owner Match", options: { "Yes": 10, "No": 0 }, weight: 10 }
+      ],
+      "Tier 4": [
+        { name: "SIMAH Owner Score", options: { "Excellent": 10, "Good": 8, "Fair": 5, "Poor": 0 }, weight: 15 },
+        { name: "National Address Match", options: { "Yes": 10, "No": 0 }, weight: 5 }
       ]
     };
 
@@ -96,9 +116,23 @@
       else if (finalScore >= 40) riskBand = 'High Risk';
       else riskBand = 'Very High Risk';
 
-      document.getElementById('output').innerText = `Score: ${finalScore} / 100\nRisk Band: ${riskBand}`;
+      const result = `Customer Name: ${document.getElementById('customerName').value}\nCR Number: ${document.getElementById('crNumber').value}\nUnified Number: ${document.getElementById('unifiedNumber').value}\nVAT Registration Number: ${document.getElementById('vatNumber').value}\n\nScore: ${finalScore} / 100\nRisk Band: ${riskBand}`;
+      document.getElementById('output').innerText = result;
+    }
+
+    async function downloadPDF() {
+      const {{ jsPDF }} = window.jspdf;
+      const doc = new jsPDF();
+
+      const outputText = document.getElementById('output').innerText || 'Please compute the score first.';
+      const lines = outputText.split('\n');
+
+      lines.forEach((line, i) => {
+        doc.text(line, 10, 10 + i * 10);
+      });
+
+      doc.save('score-summary.pdf');
     }
   </script>
 </body>
 </html>
-
