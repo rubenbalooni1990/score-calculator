@@ -1,1 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Risk Score Calculator</title>
+  <style>
+    body { font-family: Arial; margin: 30px; }
+    select, button { padding: 6px; margin: 10px 0; }
+    .param-row { margin-bottom: 15px; }
+    .result { margin-top: 20px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Risk Score Calculator</h2>
+
+  <label for="tier">Select Tier:</label>
+  <select id="tier" onchange="loadParameters()">
+    <option value="">-- Choose Tier --</option>
+    <option value="Tier 1">Tier 1 : SCF / 100K</option>
+    <option value="Tier 2">Tier 2 : SCF / 200K</option>
+  </select>
+
+  <div id="parameters"></div>
+  <button onclick="computeScore()">Compute Score</button>
+
+  <div class="result" id="output"></div>
+
+  <script>
+    const tierData = {
+      "Tier 1": [
+        { name: "CR Status", options: { "Active": 10, "Expired": 0 }, weight: 10 },
+        { name: "Business Age", options: { "<6": 0, "6–11": 2, "12–23": 4, "24–35": 6, "36+": 10 }, weight: 20 }
+      ],
+      "Tier 2": [
+        { name: "SIMAH Defaults", options: { "None": 10, "1–2": 5, "3+": 0 }, weight: 15 },
+        { name: "Facility Ratio", options: { "<1.5": 10, "1.5–2.5": 5, ">2.5": 0 }, weight: 10 }
+      ]
+    };
+
+    function loadParameters() {
+      const tier = document.getElementById('tier').value;
+      const container = document.getElementById('parameters');
+      container.innerHTML = '';
+      
+      if (!tierData[tier]) return;
+
+      tierData[tier].forEach((param, idx) => {
+        const row = document.createElement('div');
+        row.className = 'param-row';
+
+        const label = document.createElement('label');
+        label.innerText = param.name;
+
+        const select = document.createElement('select');
+        select.id = `param-${idx}`;
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.innerText = '-- Select --';
+        select.appendChild(defaultOption);
+
+        for (let [opt, score] of Object.entries(param.options)) {
+          const option = document.createElement('option');
+          option.value = score;
+          option.innerText = opt;
+          select.appendChild(option);
+        }
+
+        row.appendChild(label);
+        row.appendChild(document.createElement('br'));
+        row.appendChild(select);
+        container.appendChild(row);
+      });
+    }
+
+    function computeScore() {
+      const tier = document.getElementById('tier').value;
+      if (!tierData[tier]) return;
+
+      let total = 0;
+      let totalWeight = 0;
+
+      tierData[tier].forEach((param, idx) => {
+        const score = parseFloat(document.getElementById(`param-${idx}`).value);
+        if (!isNaN(score)) {
+          total += (score * param.weight);
+          totalWeight += param.weight;
+        }
+      });
+
+      const finalScore = totalWeight > 0 ? (total / totalWeight).toFixed(2) : 0;
+
+      let riskBand = '';
+      if (finalScore >= 80) riskBand = 'Low Risk';
+      else if (finalScore >= 60) riskBand = 'Moderate Risk';
+      else if (finalScore >= 40) riskBand = 'High Risk';
+      else riskBand = 'Very High Risk';
+
+      document.getElementById('output').innerText = `Score: ${finalScore} / 100\nRisk Band: ${riskBand}`;
+    }
+  </script>
+</body>
+</html>
 
